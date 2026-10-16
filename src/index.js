@@ -58,14 +58,36 @@ async function handleApi(request, env, execCtx) {
   }
 }
 
-// תמיכה בהרצה תחת נתיב (למשל https://smti.uk/sms/v1) — BASE_PATH ב-wrangler.toml
+// הרצה תחת נתיב (למשל https://smti.uk/sms/v1).
+// אם BASE_PATH מוגדר — משתמשים בו. אחרת מזהים אוטומטית לפי מבנה הנתיב, כך שכל Route עובד בלי הגדרות.
+const PUBLIC_FILES = /\/(index\.html|guest\.html|icon\.svg|manifest\.webmanifest|404\.html)$/;
+
+export function resolvePath(pathname, basePath) {
+  const base = String(basePath || '').trim().replace(/\/+$/, '');
+  if (base) {
+    if (pathname === base) return { redirect: base + '/' };
+    if (!pathname.startsWith(base + '/')) return { notFound: true };
+    return { path: pathname.slice(base.length) || '/' };
+  }
+  if (pathname === '/') return { path: '/' };
+  const api = pathname.indexOf('/api/');
+  if (api >= 0) return { path: pathname.slice(api) };
+  const assets = pathname.indexOf('/assets/');
+  if (assets >= 0) return { path: pathname.slice(assets) };
+  const file = pathname.match(PUBLIC_FILES);
+  if (file) return { path: '/' + file[1] };
+  if (pathname.endsWith('/')) return { path: '/' };                      // /sms/v1/ → האפליקציה
+  if (!pathname.split('/').pop().includes('.')) return { redirect: pathname + '/' }; // /sms/v1 → /sms/v1/
+  return { path: pathname };
+}
+
 function stripBase(request, env) {
-  const base = String(env.BASE_PATH || '').trim().replace(/\/+$/, '');
   const url = new URL(request.url);
-  if (!base) return { request, url };
-  if (url.pathname === base) return { redirect: `${url.origin}${base}/${url.search}` };
-  if (!url.pathname.startsWith(base + '/')) return { notFound: true };
-  url.pathname = url.pathname.slice(base.length) || '/';
+  const r = resolvePath(url.pathname, env.BASE_PATH);
+  if (r.redirect) return { redirect: `${url.origin}${r.redirect}${url.search}` };
+  if (r.notFound) return { notFound: true };
+  if (r.path === url.pathname) return { request, url };
+  url.pathname = r.path;
   return { request: new Request(url.toString(), request), url };
 }
 
