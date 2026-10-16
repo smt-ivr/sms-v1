@@ -1,0 +1,19 @@
+{
+  "name": "smt-messages-v2",
+  "version": "2.0.0",
+  "private": true,
+  "description": "S.M.T Messages V2 — ניהול SMS מתקדם מעל ימות המשיח, על Cloudflare Workers + D1",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply sms-db --remote",
+    "db:migrate:local": "wrangler d1 migrations apply sms-db --local",
+    "secret:key": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
+    "tail": "wrangler tail",
+    "test": "node --test test/api.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

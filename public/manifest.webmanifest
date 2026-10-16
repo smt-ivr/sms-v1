@@ -1,0 +1,11 @@
+{
+  "name": "S.M.T Messages",
+  "short_name": "S.M.T",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EE",
+  "theme_color": "#16202B",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

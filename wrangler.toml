@@ -1,0 +1,41 @@
+# S.M.T Messages V2 — Cloudflare Worker
+# רץ על אותו מסד D1 כמו הגרסה הישנה, אבל כל הטבלאות שלו מתחילות ב-v2_
+# וטבלת המיגרציות נפרדת (v2_migrations) — שתי הגרסאות לא מפריעות זו לזו.
+
+name = "sms-v2"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true                  # כל בקשה עוברת ב-Worker (נדרש ל-BASE_PATH)
+not_found_handling = "404-page"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sms-db"
+database_id = "d224ec0e-9fbd-4a32-8884-6c797be3bf0d"
+migrations_dir = "migrations"
+migrations_table = "v2_migrations"
+
+# Cron: תור שליחה + אוטומציות (SMS למייל, מענה אוטומטי, Webhook) + ניקוי לילי
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+APP_URL = "https://sms2.smti.uk"          # הכתובת הציבורית (לקישורים במיילים)
+MAIL_FROM = "S.M.T <sms@smti.uk>"          # כתובת מאומתת ב-Resend
+OWNER_EMAIL = ""                           # המייל שיקבל הרשאת בעלים בהרשמה. ריק = הנרשם הראשון
+BASE_PATH = ""                             # ריק = שורש הדומיין. תחת נתיב: "/sms/v1" (בלי / בסוף)
+SUBREQUEST_BUDGET = "45"                   # בתוכנית בתשלום אפשר להעלות (למשל 400)
+
+[observability]
+enabled = true
+
+# דומיין מותאם (אופציונלי) — בטל הערה והתאם:
+# routes = [{ pattern = "sms2.smti.uk", custom_domain = true }]
+
+# סודות (לא בקובץ!):
+#   npx wrangler secret put RESEND_API_KEY
+#   npx wrangler secret put ENCRYPTION_KEY
