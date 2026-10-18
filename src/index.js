@@ -34,13 +34,13 @@ supportRoutes(router);
 developerRoutes(router);
 adminRoutes(router);
 
-async function handleApi(request, env, execCtx) {
+async function handleApi(request, env, execCtx, base = '') {
   const url = new URL(request.url);
   const isPublicApi = url.pathname.startsWith('/api/v1/');
   if (isPublicApi && request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
   const ctx = {
-    request, env, url,
+    request, env, url, base,
     ip: clientIp(request),
     waitUntil: (p) => execCtx.waitUntil(Promise.resolve(p).catch((e) => console.error('waitUntil error', e))),
     user: null, session: null, params: {},
@@ -86,9 +86,25 @@ function stripBase(request, env) {
   const r = resolvePath(url.pathname, env.BASE_PATH);
   if (r.redirect) return { redirect: `${url.origin}${r.redirect}${url.search}` };
   if (r.notFound) return { notFound: true };
-  if (r.path === url.pathname) return { request, url };
+  const base = url.pathname.endsWith(r.path) ? url.pathname.slice(0, url.pathname.length - r.path.length) : '';
+  if (r.path === url.pathname) return { request, url, base };
   url.pathname = r.path;
-  return { request: new Request(url.toString(), request), url };
+  return { request: new Request(url.toString(), request), url, base };
+}
+
+// Cloudflare Assets מפנה /guest.html → /guest ו-/index.html → / עם נתיב מוחלט מהשורש,
+// מה שזורק את הדפדפן מחוץ לנתיב של הפרויקט. לכן עוקבים אחרי ההפניה בתוך ה-Worker ומחזירים את הקובץ ישירות.
+async function serveAsset(env, request) {
+  let res = await env.ASSETS.fetch(request);
+  for (let hops = 0; hops < 3 && res.status >= 300 && res.status < 400; hops++) {
+    const loc = res.headers.get('Location');
+    if (!loc) break;
+    const next = new URL(loc, request.url);
+    if (next.origin !== new URL(request.url).origin) break;
+    request = new Request(next.toString(), { method: request.method, headers: request.headers });
+    res = await env.ASSETS.fetch(request);
+  }
+  return res;
 }
 
 export default {
@@ -96,8 +112,8 @@ export default {
     const r = stripBase(request, env);
     if (r.redirect) return Response.redirect(r.redirect, 301);
     if (r.notFound) return json({ error: 'Not found' }, 404);
-    if (r.url.pathname.startsWith('/api/')) return handleApi(r.request, env, execCtx);
-    if (env.ASSETS) return env.ASSETS.fetch(r.request);
+    if (r.url.pathname.startsWith('/api/')) return handleApi(r.request, env, execCtx, r.base);
+    if (env.ASSETS) return serveAsset(env, r.request);
     return json({ error: 'Not found' }, 404);
   },
 

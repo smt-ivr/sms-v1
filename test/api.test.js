@@ -191,6 +191,7 @@ test('אוטומציה: מענה אוטומטי עם cooldown, ו-Webhook חתו
 test('גישת אורח: קוד מוגבל, צפייה לפי מספרים, שליחה נספרת, ביטול מנתק', async () => {
   const sh = await user.post('/api/shares', { system_id: systemId, label: 'עובד', can_read: true, can_send: true, phones: '0501111111', max_sends: 1, expires_minutes: 60 });
   assert.equal(sh.status, 200, JSON.stringify(sh.data));
+  assert.ok(sh.data.link.startsWith('https://sms2.test/guest.html#'), sh.data.link);
   assert.ok(!(await user.get('/api/shares')).data[0].code_hash);
   const g = client(t, '10.9.9.9');
   assert.equal((await g.post('/api/guest/login', { code: 'WRONGCODE1' })).status, 401);
@@ -336,4 +337,32 @@ test('הרצה תחת נתיב (BASE_PATH=/sms/v1)', async () => {
     assert.equal((await r2.json()).ok, true);
     assert.equal((await go('/other/api/health')).status, 404);
   } finally { env.BASE_PATH = ''; }
+});
+
+test('קוד אורח תחת נתיב: לא בורח לדומיין הראשי', async () => {
+  // מדמה את Cloudflare Assets: /guest.html מפנה ל-/guest (נתיב מוחלט מהשורש)
+  const prevAssets = env.ASSETS;
+  env.ASSETS = {
+    async fetch(req) {
+      const p = new URL(req.url).pathname;
+      if (p === '/guest.html') return new Response(null, { status: 307, headers: { Location: '/guest' } });
+      if (p === '/index.html') return new Response(null, { status: 307, headers: { Location: '/' } });
+      if (p === '/guest') return new Response('GUEST PAGE', { status: 200 });
+      if (p === '/') return new Response('APP PAGE', { status: 200 });
+      return new Response('nf', { status: 404 });
+    },
+  };
+  try {
+    const go = (p) => t.worker.fetch(new Request(`https://smti.uk${p}`), env, { waitUntil() {} });
+    const g = await go('/sms/v1/guest.html');
+    assert.equal(g.status, 200);
+    assert.equal(await g.text(), 'GUEST PAGE');
+    const i = await go('/sms/v1/index.html');
+    assert.equal(await i.text(), 'APP PAGE');
+
+    // הקישור לאורח נבנה מהכתובת והנתיב שממנו עובדים
+    const r = await user.post('/sms/v1/api/shares', { system_id: systemId, label: 'נתיב', can_read: true, expires_minutes: 60 });
+    assert.equal(r.status, 200, JSON.stringify(r.data));
+    assert.ok(r.data.link.startsWith('https://sms2.test/sms/v1/guest.html#'), r.data.link);
+  } finally { env.ASSETS = prevAssets; }
 });
