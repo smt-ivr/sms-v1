@@ -43,7 +43,8 @@ async function newCode(env) {
   fail(500, 'לא ניתן היה ליצור קוד ייחודי. נסה שוב.');
 }
 
-const guestLink = (env, code) => `${env.APP_URL || ''}/guest.html#${code}`;
+// הקישור נבנה מהכתובת שממנה המשתמש עובד בפועל (כולל הנתיב), כדי שיעבוד גם כשהפרויקט רץ תחת נתיב
+const guestLink = (ctx, code) => `${ctx.url ? ctx.url.origin + (ctx.base || '') : (ctx.env.APP_URL || '')}/guest.html#${code}`;
 
 export default function shareRoutes(r) {
   r.get('/api/shares', async (ctx) => {
@@ -70,7 +71,7 @@ export default function shareRoutes(r) {
       user.id, system.id, data.label, hash, code.slice(-3), data.can_read, data.can_send, data.phones, data.max_sends,
       expiresFrom(body, Date.now() + 60 * 60_000), Date.now());
     await audit(ctx.env, { userId: user.id, actorId: user.id, action: 'share.create', detail: { id, system: system.id }, ip: ctx.ip });
-    return { ok: true, id, code, link: guestLink(ctx.env, code) };
+    return { ok: true, id, code, link: guestLink(ctx, code) };
   });
 
   r.put('/api/shares/:id', async (ctx) => {
@@ -97,7 +98,7 @@ export default function shareRoutes(r) {
     const { code, hash } = await newCode(ctx.env);
     await run(ctx.env, 'UPDATE v2_shares SET code_hash = ?, code_hint = ? WHERE id = ?', hash, code.slice(-3), sh.id);
     await run(ctx.env, 'DELETE FROM v2_sessions WHERE share_id = ?', sh.id);
-    return { ok: true, code, link: guestLink(ctx.env, code) };
+    return { ok: true, code, link: guestLink(ctx, code) };
   });
 
   r.delete('/api/shares/:id', async (ctx) => {
