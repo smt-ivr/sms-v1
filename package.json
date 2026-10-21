@@ -1,5 +1,5 @@
 {
-  "name": "smt-messages-v2",
+  "name": "sms-v1",
   "version": "2.0.0",
   "private": true,
   "description": "S.M.T Messages V2 — ניהול SMS מתקדם מעל ימות המשיח, על Cloudflare Workers + D1",
