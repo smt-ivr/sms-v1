@@ -1,5 +1,5 @@
 // אנשי קשר וקבוצות
-import { api, route, $, esc, icon, can, toast, modal, confirmDialog, on, formValues, emptyState, loadingState, download, go, normPhone } from '../core.js';
+import { api, route, $, esc, icon, can, toast, modal, confirmDialog, on, formValues, emptyState, loadingState, exportFile, go, normPhone } from '../core.js';
 
 export function parseCsv(text) {
   const firstLine = text.split(/\r?\n/)[0] || '';
@@ -231,12 +231,7 @@ export function register() {
     const imp = $('#import', view);
     if (imp) imp.addEventListener('click', importModal);
     const exp = $('#export', view);
-    if (exp) exp.addEventListener('click', () => {
-      const gname = Object.fromEntries(s.groups.map((g) => [g.id, g.name]));
-      const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-      const lines = ['שם,טלפון,מייל,הערות,קבוצות,חסום', ...filtered().map((c) => [q(c.name), q(c.phone), q(c.email), q(c.notes), q(c.groups.map((g) => gname[g]).join('; ')), q(c.is_blocked ? 'כן' : '')].join(','))];
-      download('contacts.csv', '\uFEFF' + lines.join('\r\n'));
-    });
+    if (exp) exp.addEventListener('click', () => exportFile({ kind: 'contacts', group: s.group, q: s.q }));
     on(tbl, 'click', '[data-edit]', (e, b) => editModal(s.contacts.find((c) => c.id === Number(b.dataset.edit))));
     on(tbl, 'click', '[data-del]', async (e, b) => {
       if (!(await confirmDialog('למחוק את איש הקשר?', { danger: true, confirm: 'מחיקה' }))) return;

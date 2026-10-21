@@ -123,3 +123,24 @@ export async function hmacHex(secret, message) {
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+// ---------- קישורים חתומים (למשל להורדת קבצים) ----------
+// הקישור עובד גם בלי עוגייה (למשל כשנטפרי בודק את הקובץ מהשרתים שלו), אבל חתום, מוגבל בזמן ומחזיר רק את הנתונים של המשתמש שיצר אותו
+export async function signToken(env, purpose, payload) {
+  const body = b64(enc.encode(JSON.stringify(payload))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  if (!env.ENCRYPTION_KEY) fail(500, 'ENCRYPTION_KEY לא הוגדר בשרת. ראה README.');
+  const sig = await hmacHex(`${env.ENCRYPTION_KEY}:${purpose}`, body);
+  return `${body}.${sig.slice(0, 32)}`;
+}
+
+export async function verifyToken(env, purpose, token) {
+  const [body, sig] = String(token || '').split('.');
+  if (!body || !sig || !env.ENCRYPTION_KEY) return null;
+  const expected = (await hmacHex(`${env.ENCRYPTION_KEY}:${purpose}`, body)).slice(0, 32);
+  if (!timingSafeEqual(sig, expected)) return null;
+  try {
+    const payload = JSON.parse(dec.decode(unb64(body.replace(/-/g, '+').replace(/_/g, '/'))));
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
+  } catch { return null; }
+}

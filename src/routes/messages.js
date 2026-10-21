@@ -300,27 +300,5 @@ export default function messageRoutes(r) {
       quota: { used: await usedToday(ctx.env, user.id), limit: limits.daily_sms_limit },
     };
   });
-
-  // ייצוא שיחות ל-CSV (עם BOM כדי שאקסל יציג עברית)
-  r.get('/api/messages/export', async (ctx) => {
-    const user = await requireUser(ctx);
-    await requireFeature(ctx, 'messages.export');
-    const system = await resolveSystem(ctx, ctx.url.searchParams.get('system'));
-    const phone = ctx.url.searchParams.get('phone') ? normalizePhone(ctx.url.searchParams.get('phone')) : null;
-    let messages = await fetchMessages(ctx.env, system, { limit: 3000 });
-    if (phone) messages = messages.filter((m) => m.phone === phone);
-    const contacts = await contactMap(ctx.env, user.id);
-    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = ['תאריך,כיוון,טלפון,שם,הודעה,סטטוס'];
-    for (const m of messages) {
-      lines.push([q(m.time), q(m.out ? 'יוצאת' : 'נכנסת'), q(m.phone), q(contacts.get(m.phone) ? contacts.get(m.phone).name : ''), q(m.text), q(m.status || '')].join(','));
-    }
-    return new Response('\uFEFF' + lines.join('\r\n'), {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="sms-${system.id}${phone ? '-' + phone : ''}.csv"`,
-        'Cache-Control': 'no-store',
-      },
-    });
-  });
+  // ייצוא שיחות ל-CSV: ראה routes/exports.js (קישור הורדה רגיל מהשרת)
 }
