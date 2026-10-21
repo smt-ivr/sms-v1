@@ -366,35 +366,3 @@ test('קוד אורח תחת נתיב: לא בורח לדומיין הראשי',
     assert.ok(r.data.link.startsWith('https://sms2.test/sms/v1/guest.html#'), r.data.link);
   } finally { env.ASSETS = prevAssets; }
 });
-
-test('ייצוא CSV דרך קישור רגיל מהשרת: עובד בלי עוגייה, חתום ומוגבל למשתמש', async () => {
-  await user.post('/api/contacts', { name: 'ייצוא בדיקה', phone: '0507777777' });
-  const r = await user.post('/api/exports', { kind: 'contacts', q: 'ייצוא' });
-  assert.equal(r.status, 200, JSON.stringify(r.data));
-  assert.match(r.data.url, /^\/api\/exports\/[^/]+\/contacts\.csv$/);
-
-  // קישור רגיל שנטפרי יכול לבדוק: בלי עוגייה ובלי כותרות מיוחדות
-  const anon = client(t, '10.8.8.8');
-  const d = await anon.get(r.data.url);
-  assert.equal(d.status, 200);
-  assert.match(d.headers.get('Content-Type'), /text\/csv/);
-  assert.match(d.headers.get('Content-Disposition'), /attachment; filename="contacts\.csv"/);
-  assert.ok(String(d.data).includes('0507777777'));
-  assert.equal(String(d.data).trim().split('\r\n').length, 2); // כותרת + איש הקשר שמתאים לחיפוש
-
-  // שינוי בטוקן (למשל ניסיון להחליף את מזהה המשתמש) נדחה
-  const [, , , token, file] = r.data.url.split('/');
-  const [body, sig] = token.split('.');
-  const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body, 'base64url').toString()), u: 1 })).toString('base64url');
-  assert.equal((await anon.get(`/api/exports/${forged}.${sig}/${file}`)).status, 404);
-  assert.equal((await anon.get(`/api/exports/${body}.${'0'.repeat(32)}/${file}`)).status, 404);
-
-  // יצירת קישור דורשת התחברות
-  assert.equal((await anon.post('/api/exports', { kind: 'contacts' })).status, 401);
-
-  // ייצוא הודעות: רק למערכת של המשתמש
-  const m = await user.post('/api/exports', { kind: 'messages', system: systemId });
-  assert.equal(m.status, 200, JSON.stringify(m.data));
-  assert.equal((await anon.get(m.data.url)).status, 200);
-  assert.equal((await owner.post('/api/exports', { kind: 'messages', system: systemId })).status, 404);
-});

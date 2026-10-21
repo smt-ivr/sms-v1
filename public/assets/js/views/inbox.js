@@ -1,7 +1,7 @@
 // תיבת הודעות: רשימת שיחות + שיחה + פאנל איש קשר
 import {
-  api, route, $, esc, icon, currentSystem, can, toast, modal, popover, closePopover, confirmDialog, on, formValues,
-  listTime, dayLabel, hhmm, initials, linkify, smsInfo, statusIcon, STATUS_TEXT, normPhone, emptyState, fmt, exportFile,
+  api, href, route, $, esc, icon, currentSystem, can, toast, modal, popover, closePopover, confirmDialog, on, formValues,
+  listTime, dayLabel, hhmm, initials, linkify, smsInfo, statusIcon, STATUS_TEXT, normPhone, emptyState, fmt,
 } from '../core.js';
 
 const POLL_MS = 15_000;
@@ -249,9 +249,7 @@ function mountInbox(view, query) {
         ${c.email ? `<dt>אימייל</dt><dd class="ltr">${esc(c.email)}</dd>` : ''}
       </dl>
       ${can('contacts') ? `<div class="field" style="margin-top:18px"><label for="notes">הערות</label><textarea id="notes" rows="4" placeholder="הערה פנימית, רק אתה רואה אותה">${esc(c.notes || '')}</textarea></div>` : ''}
-      ${can('messages.export') ? `<button class="btn btn-sm btn-block" id="export-conv">${icon('download')} ייצוא השיחה ל-CSV</button>` : ''}`;
-    const ex = $('#export-conv', infoEl);
-    if (ex) ex.addEventListener('click', () => exportFile({ kind: 'messages', system: sys.id, phone: t.phone }));
+      ${can('messages.export') ? `<a class="btn btn-sm btn-block" href="${href('/api/messages/export')}?system=${sys.id}&phone=${encodeURIComponent(t.phone)}">${icon('download')} ייצוא השיחה ל-CSV</a>` : ''}`;
     const notes = $('#notes', infoEl);
     if (notes) notes.addEventListener('change', () => upsertContact({ notes: notes.value }));
   }
@@ -316,11 +314,10 @@ function mountInbox(view, query) {
     const pop = popover(e.currentTarget, `<div class="menu">
       <button data-m="refresh">${icon('refresh')} רענון מימות המשיח</button>
       <button data-m="readall">${icon('done_all')} סימון הכל כנקרא</button>
-      ${can('messages.export') ? `<button data-m="export">${icon('download')} ייצוא כל ההודעות (CSV)</button>` : ''}
+      ${can('messages.export') ? `<a href="${href('/api/messages/export')}?system=${sys.id}">${icon('download')} ייצוא כל ההודעות (CSV)</a>` : ''}
     </div>`);
     on(pop, 'click', '[data-m]', async (ev, b) => {
       closePopover();
-      if (b.dataset.m === 'export') exportFile({ kind: 'messages', system: sys.id });
       if (b.dataset.m === 'refresh') { await loadConvs(true); toast('עודכן'); }
       if (b.dataset.m === 'readall') { try { await api('/api/messages/read-all', { method: 'POST', body: { system: sys.id } }); s.convs.forEach((c) => { c.unread = 0; }); renderList(); toast('כל השיחות סומנו כנקראו'); } catch (err) { toast(err.message, 'err'); } }
     });

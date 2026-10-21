@@ -184,17 +184,13 @@ export function copy(text, msg = 'הועתק') {
   navigator.clipboard.writeText(text).then(() => toast(msg)).catch(() => toast('לא ניתן להעתיק אוטומטית', 'err'));
 }
 
-// ייצוא קובץ דרך קישור רגיל מהשרת (ולא קובץ שנבנה בזיכרון הדפדפן), כדי שסינון כמו נטפרי יוכל לבדוק ולאשר אותו
-export async function exportFile(body) {
-  try {
-    const { url } = await api('/api/exports', { method: 'POST', body });
-    const a = document.createElement('a');
-    a.href = href(url);
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } catch (e) { toast(e.message, 'err'); }
+export function download(filename, content, mime = 'text/csv;charset=utf-8') {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 // ---------- פורמטים ----------

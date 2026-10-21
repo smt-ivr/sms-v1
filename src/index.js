@@ -10,7 +10,6 @@ import shareRoutes from './routes/shares.js';
 import supportRoutes from './routes/support.js';
 import developerRoutes, { CORS } from './routes/developer.js';
 import adminRoutes from './routes/admin.js';
-import exportRoutes from './routes/exports.js';
 import { runCron } from './cron.js';
 
 export const VERSION = '2.0.0';
@@ -34,7 +33,6 @@ shareRoutes(router);
 supportRoutes(router);
 developerRoutes(router);
 adminRoutes(router);
-exportRoutes(router);
 
 async function handleApi(request, env, execCtx, base = '') {
   const url = new URL(request.url);
